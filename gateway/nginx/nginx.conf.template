@@ -1,0 +1,76 @@
+load_module modules/ngx_otel_module.so;
+events {}
+
+http {
+    gzip on;
+    gzip_types text/plain text/css application/json application/x-javascript text/xml application/xml application/xml+rss text/javascript;
+    gzip_proxied any;
+    gzip_min_length  1000;
+
+    index index.html;
+    
+    # Reference https://github.com/microservices-march/messenger/pull/22
+    # Turn tracing on for http traffic
+    otel_trace on;
+
+    # If you are at the start of the request, this context
+    # will be created by the library and consumed by downstream
+    # services. Required if you want traces to be connected to each
+    # other across services ("distributed tracing")
+    otel_trace_context inject;
+
+    # This is how the NGINX server will appear in your trace viewer
+    otel_service_name "gateway";
+
+    # You can configure specifics about how the traces are transferred
+    # The only required element is the `endpoint` directive
+    otel_exporter {
+        endpoint ${JAEGER_URL};
+    }
+
+    server {
+        # Server configuration
+        listen 9080;
+        listen 9443 default_server ssl;
+        ssl_certificate /etc/ssl/certfile.pem;
+        ssl_certificate_key /etc/ssl/keyfile.key;
+
+        location /api/auth {
+            rewrite ^/api/auth/(.*)$ /auth/$1 break;
+
+            proxy_pass ${AUTH_SERVICE_URL};
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+
+        location /api/accounts {
+            rewrite ^/api/accounts/(.*)$ /accounts/$1 break;
+
+            proxy_pass ${ACCOUNT_SERVICE_URL};
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+
+        location /api/statistics {
+            rewrite ^/api/statistics/(.*)$ /statistics/$1 break;
+
+            proxy_pass ${STATISTICS_SERVICE_URL};
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+
+        location / {
+            root /usr/share/nginx/webapp;
+            include /etc/nginx/mime.types;
+            otel_trace off;
+        }
+
+        location /metrics {
+            stub_status on;
+            otel_trace off;
+        }
+    }
+}

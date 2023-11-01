@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<server description="defaultServer">
+  
+  <featureManager>
+    <feature>jsonb-3.0</feature>
+    <feature>jwt-1.0</feature>
+    <feature>monitor-1.0</feature>
+    <feature>restfulWS-3.1</feature>
+    <feature>ssl-1.0</feature>
+    <feature>mpConfig-3.0</feature>
+    <feature>mpHealth-4.0</feature>
+    <feature>mpJwt-2.1</feature>
+    <feature>mpMetrics-5.0</feature>
+    <feature>mpOpenAPI-3.1</feature>
+    <feature>mpRestClient-3.0</feature>
+    <feature>mpTelemetry-1.0</feature>
+  </featureManager>
+  
+  <httpEndpoint id="defaultHttpEndpoint"
+                httpPort="9280"
+                httpsPort="9643"/>
+  
+  <webApplication location="account-service.war" contextRoot="/"/>
+  
+  <mpMetrics authentication="false"/>
+  
+  <logging messageFormat="json" messageLogLevel="info" messageSource="message,trace,accessLog,ffdc,audit"/>
+  
+  <cors domain="/accounts"
+        allowedOrigins="*"
+        allowedMethods="GET, DELETE, POST, PUT"
+        allowedHeaders="Accept, Content-Type, Authorization"
+        maxAge="3600"/>
+  
+  <variable name="keystore.name" defaultValue="keystore.p12"/>
+  <variable name="keystore.pass" defaultValue="CHANGE_ME"/>
+  <variable name="jwt.key.name" defaultValue="default"/>
+  <variable name="jwt.audiences" defaultValue="piggymetrics"/>
+  <variable name="jwt.issuer" defaultValue="http://piggymetrics.mp.com"/>
+  
+  <!-- This is the keystore that will be used by SSL and by JWT. -->
+  <keyStore id="defaultKeyStore" location="${keystore.name}" type="pkcs12" password="${keystore.pass}"/>
+  
+  <!-- The MP JWT configuration that injects the caller's JWT into a ResourceScoped bean for inspection. -->
+  <mpJwt id="jwtUserConsumer" keyName="${jwt.key.name}" audiences="${jwt.audiences}" issuer="${jwt.issuer}"/>
+
+</server>

@@ -1,0 +1,603 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth
+  labels:
+    app: auth
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: auth
+  template:
+    metadata:
+      labels:
+        app: auth
+    spec:
+      containers:
+      - name: auth
+        image: ${AUTH_IMAGE}
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 9180
+        - name: https
+          containerPort: 9543
+        env:
+          - name: JNOSQL_MONGODB_HOST
+            value: "mongo-svc:27017"
+          - name: JNOSQL_MONGODB_USER
+            valueFrom:
+              secretKeyRef:
+                name: pg-secret
+                key: MONGODB_USER
+          - name: JNOSQL_MONGODB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: pg-secret
+                key: MONGODB_PASSWORD
+          - name: OTEL_EXPORTER_OTLP_ENDPOINT
+            value: "http://jaeger-collector:4317"
+          - name: KEYSTORE_PASS
+            valueFrom:
+              secretKeyRef:
+                name: pg-secret
+                key: KEYSTORE_PASSWORD
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 9180
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 1
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 9180
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 1
+        volumeMounts:
+          - name: logs-volume
+            mountPath: /logs
+        resources:
+          limits:
+            cpu: 1
+            memory: 1Gi
+          requests:
+            cpu: 500m
+            memory: 500Mi
+      - name: filebeat
+        image: docker.elastic.co/beats/filebeat:7.6.2
+        args: [
+          "-c", "/etc/filebeat.yml",
+          "-e",
+        ]
+        securityContext:
+          runAsUser: 0
+        resources:
+          limits:
+            cpu: 200m
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        env:
+        - name: ELASTICSEARCH_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: pg-secret
+              key: ELASTICSEARCH_USERNAME
+        - name: ELASTICSEARCH_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pg-secret
+              key: ELASTICSEARCH_PASSWORD
+        - name: ELASTICSEARCH_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: pg-configmap
+              key: ELASTICSEARCH_HOST
+        - name: ELASTICSEARCH_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: pg-configmap
+              key: ELASTICSEARCH_PORT
+        volumeMounts:
+        - name: config
+          mountPath: /etc/filebeat.yml
+          readOnly: true
+          subPath: filebeat-ol.yml
+        - name: logs-volume
+          mountPath: /logs
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          defaultMode: 0600
+          name: filebeat-config
+      - name: logs-volume
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+spec:
+  type: ClusterIP
+  selector:
+    app: auth
+  ports:
+  - name: http
+    protocol: TCP
+    port: 9180
+    targetPort: http
+  - name: https
+    protocol: TCP
+    port: 9543
+    targetPort: https
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: statistics
+  labels:
+    app: statistics
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: statistics
+  template:
+    metadata:
+      labels:
+        app: statistics
+    spec:
+      containers:
+      - name: statistics
+        image: ${STATISTICS_IMAGE}
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 9380
+        - name: https
+          containerPort: 9743
+        env:
+          - name: JNOSQL_MONGODB_HOST
+            value: "mongo-svc:27017"
+          - name: JNOSQL_MONGODB_USER
+            valueFrom:
+              secretKeyRef:
+                name: pg-secret
+                key: MONGODB_USER
+          - name: JNOSQL_MONGODB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: pg-secret
+                key: MONGODB_PASSWORD
+          - name: OTEL_EXPORTER_OTLP_ENDPOINT
+            value: "http://jaeger-collector:4317"
+          - name: KEYSTORE_PASS
+            valueFrom:
+              secretKeyRef:
+                name: pg-secret
+                key: KEYSTORE_PASSWORD
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 9380
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 1
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 9380
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 1
+        volumeMounts:
+          - name: logs-volume
+            mountPath: /logs
+        resources:
+          limits:
+            cpu: 1
+            memory: 1Gi
+          requests:
+            cpu: 500m
+            memory: 500Mi
+      - name: filebeat
+        image: docker.elastic.co/beats/filebeat:7.6.2
+        args: [
+          "-c", "/etc/filebeat.yml",
+          "-e",
+        ]
+        securityContext:
+          runAsUser: 0
+        resources:
+          limits:
+            cpu: 200m
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        env:
+        - name: ELASTICSEARCH_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: pg-secret
+              key: ELASTICSEARCH_USERNAME
+        - name: ELASTICSEARCH_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pg-secret
+              key: ELASTICSEARCH_PASSWORD
+        - name: ELASTICSEARCH_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: pg-configmap
+              key: ELASTICSEARCH_HOST
+        - name: ELASTICSEARCH_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: pg-configmap
+              key: ELASTICSEARCH_PORT
+        volumeMounts:
+        - name: config
+          mountPath: /etc/filebeat.yml
+          readOnly: true
+          subPath: filebeat-ol.yml
+        - name: logs-volume
+          mountPath: /logs
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          defaultMode: 0600
+          name: filebeat-config
+      - name: logs-volume
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: statistics-service
+spec:
+  type: ClusterIP
+  selector:
+    app: statistics
+  ports:
+  - name: http
+    protocol: TCP
+    port: 9380
+    targetPort: http
+  - name: https
+    protocol: TCP
+    port: 9743
+    targetPort: https
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: account
+  labels:
+    app: account
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: account
+  template:
+    metadata:
+      labels:
+        app: account
+    spec:
+      containers:
+      - name: account
+        image: ${ACCOUNT_IMAGE}
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 9280
+        - name: https
+          containerPort: 9643
+        env:
+          - name: JNOSQL_MONGODB_HOST
+            value: "mongo-svc:27017"
+          - name: JNOSQL_MONGODB_USER
+            valueFrom:
+              secretKeyRef:
+                name: pg-secret
+                key: MONGODB_USER
+          - name: JNOSQL_MONGODB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: pg-secret
+                key: MONGODB_PASSWORD
+          - name: OTEL_EXPORTER_OTLP_ENDPOINT
+            value: "http://jaeger-collector:4317"
+          - name: KEYSTORE_PASS
+            valueFrom:
+              secretKeyRef:
+                name: pg-secret
+                key: KEYSTORE_PASSWORD
+          - name: AUTHSERVICECLIENT_MP_REST_URI
+            value: "http://auth-service:9180"
+          - name: STATISTICSSERVICECLIENT_MP_REST_URI
+            value: "http://statistics-service:9380"
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 9280
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 1
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 9280
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 1
+        volumeMounts:
+          - name: logs-volume
+            mountPath: /logs
+        resources:
+          limits:
+            cpu: 1
+            memory: 1Gi
+          requests:
+            cpu: 500m
+            memory: 500Mi
+      - name: filebeat
+        image: docker.elastic.co/beats/filebeat:7.6.2
+        args: [
+          "-c", "/etc/filebeat.yml",
+          "-e",
+        ]
+        securityContext:
+          runAsUser: 0
+        resources:
+          limits:
+            cpu: 200m
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        env:
+        - name: ELASTICSEARCH_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: pg-secret
+              key: ELASTICSEARCH_USERNAME
+        - name: ELASTICSEARCH_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pg-secret
+              key: ELASTICSEARCH_PASSWORD
+        - name: ELASTICSEARCH_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: pg-configmap
+              key: ELASTICSEARCH_HOST
+        - name: ELASTICSEARCH_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: pg-configmap
+              key: ELASTICSEARCH_PORT
+        volumeMounts:
+        - name: config
+          mountPath: /etc/filebeat.yml
+          readOnly: true
+          subPath: filebeat-ol.yml
+        - name: logs-volume
+          mountPath: /logs
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          defaultMode: 0600
+          name: filebeat-config
+      - name: logs-volume
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: account-service
+spec:
+  type: ClusterIP
+  selector:
+    app: account
+  ports:
+  - name: http
+    protocol: TCP
+    port: 9280
+    targetPort: http
+  - name: https
+    protocol: TCP
+    port: 9643
+    targetPort: https
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  labels:
+    app: gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gateway
+  template:
+    metadata:
+      labels:
+        app: gateway
+    spec:
+      containers:
+      - name: gateway
+        image: ${GATEWAY_IMAGE}
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 9080
+        - name: https
+          containerPort: 9443
+        env:
+          - name: JAEGER_URL
+            value: "jaeger-collector:4317"
+          - name: AUTH_SERVICE_URL
+            value: "http://auth-service:9180"
+          - name: ACCOUNT_SERVICE_URL
+            value: "http://account-service:9280"
+          - name: STATISTICS_SERVICE_URL
+            value: "http://statistics-service:9380"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 9080
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 1
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 9080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 1
+        volumeMounts:
+          - name: logs-volume
+            mountPath: /var/log/nginx
+        resources:
+          limits:
+            cpu: 1
+            memory: 1Gi
+          requests:
+            cpu: 500m
+            memory: 500Mi
+      - name: filebeat
+        image: docker.elastic.co/beats/filebeat:7.6.2
+        args: [
+          "-c", "/etc/filebeat.yml",
+          "-e",
+        ]
+        securityContext:
+          runAsUser: 0
+        resources:
+          limits:
+            cpu: 200m
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        env:
+        - name: ELASTICSEARCH_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: pg-secret
+              key: ELASTICSEARCH_USERNAME
+        - name: ELASTICSEARCH_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pg-secret
+              key: ELASTICSEARCH_PASSWORD
+        - name: ELASTICSEARCH_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: pg-configmap
+              key: ELASTICSEARCH_HOST
+        - name: ELASTICSEARCH_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: pg-configmap
+              key: ELASTICSEARCH_PORT
+        volumeMounts:
+        - name: config
+          mountPath: /etc/filebeat.yml
+          readOnly: true
+          subPath: filebeat-nginx.yml
+        - name: logs-volume
+          mountPath: /logs
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          defaultMode: 0600
+          name: filebeat-config
+      - name: logs-volume
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+spec:
+  type: LoadBalancer
+  selector:
+    app: gateway
+  ports:
+  - name: http
+    protocol: TCP
+    port: 9080
+    targetPort: http
+  - name: https
+    protocol: TCP
+    port: 9443
+    targetPort: https
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-prometheus-exporter
+  labels:
+    app: nginx-prometheus-exporter
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx-prometheus-exporter
+  template:
+    metadata:
+      labels:
+        app: nginx-prometheus-exporter
+    spec:
+      containers:
+      - name: nginx-prometheus-exporter
+        image: nginx/nginx-prometheus-exporter:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 9113
+        args: ["-nginx.scrape-uri=http://gateway:9080/metrics", "-web.telemetry-path=/metrics"]
+        resources:
+          limits:
+            cpu: 1
+            memory: 1Gi
+          requests:
+            cpu: 500m
+            memory: 500Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-prometheus-exporter
+spec:
+  type: ClusterIP
+  selector:
+    app: nginx-prometheus-exporter
+  ports:
+  - name: http
+    protocol: TCP
+    port: 9113
+    targetPort: http

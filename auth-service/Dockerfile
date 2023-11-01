@@ -1,7 +1,7 @@
-FROM java:8-jre
-MAINTAINER Alexander Lukyanchikov <sqshq@sqshq.com>
+FROM icr.io/appcafe/open-liberty:kernel-slim-java17-openj9-ubi
 
-ADD ./target/auth-service.jar /app/
-CMD ["java", "-Xmx200m", "-jar", "/app/auth-service.jar"]
+COPY --chown=1001:0 src/main/liberty/config /config/
+RUN features.sh
 
-EXPOSE 5000
+COPY --chown=1001:0 target/*.war /config/apps
+RUN configure.sh

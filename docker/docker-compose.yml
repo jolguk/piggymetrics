@@ -1,0 +1,124 @@
+version: '3.8'
+services:
+  mongo:
+    image: mongo:latest
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=$MONGODB_USER
+      - MONGO_INITDB_ROOT_PASSWORD=$MONGODB_PASSWORD
+    networks:
+      - piggymetrics
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+    networks:
+      - piggymetrics
+  auth-service:
+    image: auth-service:$IMAGE_TAG
+    ports:
+      - "9180:9180"
+      - "9543:9543"
+    environment:
+      - JNOSQL_MONGODB_HOST=mongo:27017
+      - JNOSQL_MONGODB_USER=$MONGODB_USER
+      - JNOSQL_MONGODB_PASSWORD=$MONGODB_PASSWORD
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      - KEYSTORE_PASS=$KEYSTORE_PASSWORD
+    networks:
+      - piggymetrics
+    depends_on:
+      - mongo
+      - jaeger
+  statistics-service:
+    image: statistics-service:$IMAGE_TAG
+    ports:
+      - "9380:9380"
+      - "9743:9743"
+    environment:
+      - JNOSQL_MONGODB_HOST=mongo:27017
+      - JNOSQL_MONGODB_USER=$MONGODB_USER
+      - JNOSQL_MONGODB_PASSWORD=$MONGODB_PASSWORD
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      - KEYSTORE_PASS=$KEYSTORE_PASSWORD
+    networks:
+      - piggymetrics
+    depends_on:
+      - mongo
+      - jaeger
+  account-service:
+    image: account-service:$IMAGE_TAG
+    ports:
+      - "9280:9280"
+      - "9643:9643"
+    environment:
+      - JNOSQL_MONGODB_HOST=mongo:27017
+      - JNOSQL_MONGODB_USER=$MONGODB_USER
+      - JNOSQL_MONGODB_PASSWORD=$MONGODB_PASSWORD
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+      - AUTHSERVICECLIENT_MP_REST_URI=http://auth-service:9180
+      - STATISTICSSERVICECLIENT_MP_REST_URI=http://statistics-service:9380
+      - KEYSTORE_PASS=$KEYSTORE_PASSWORD
+    networks:
+      - piggymetrics
+    depends_on:
+      - auth-service
+      - statistics-service
+  gateway:
+    image: gateway:$IMAGE_TAG
+    ports:
+      - "9080:9080"
+      - "9443:9443"
+    environment:
+      - JAEGER_URL=jaeger:4317
+      - AUTH_SERVICE_URL=http://auth-service:9180
+      - ACCOUNT_SERVICE_URL=http://account-service:9280
+      - STATISTICS_SERVICE_URL=http://statistics-service:9380
+    networks:
+      - piggymetrics
+    depends_on:
+      - auth-service
+      - account-service
+      - statistics-service
+  nginx-prometheus-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    ports:
+      - "9113:9113"
+    restart: always
+    command:
+      - -nginx.scrape-uri=http://gateway:9080/metrics
+      - -web.telemetry-path=/metrics
+    networks:
+      - piggymetrics
+    depends_on:
+      - gateway
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - piggymetrics
+    depends_on:
+      - nginx-prometheus-exporter
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - 3000:3000
+    restart: unless-stopped
+    volumes:
+      - ./datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml
+      - grafana-data:/var/lib/grafana
+    networks:
+      - piggymetrics
+    depends_on:
+      - prometheus
+networks:
+  piggymetrics:
+volumes:
+  grafana-data:

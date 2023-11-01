@@ -1,0 +1,8 @@
+openapi: 3.0.0
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+security:
+  - BearerAuth: [ ]

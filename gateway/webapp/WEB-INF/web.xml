@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="https://jakarta.ee/xml/ns/jakartaee"
+         xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_5_0.xsd"
+         version="5.0">
+
+  <display-name>Piggy Metrics: Gateway </display-name>
+  
+  <error-page>
+    <error-code>404</error-code>
+    <location>/</location>
+  </error-page>
+  
+  <security-constraint id="SecurityConstraint_1">
+    <web-resource-collection id="WebResourceCollection_1">
+      <web-resource-name>gateway</web-resource-name>
+      <description>SSL for gateway component</description>
+      <url-pattern>/*</url-pattern>
+      <http-method>GET</http-method>
+      <http-method>POST</http-method>
+      <http-method>PUT</http-method>
+      <http-method>DELETE</http-method>
+    </web-resource-collection>
+    <user-data-constraint id="UserDataConstraint_1">
+      <transport-guarantee>CONFIDENTIAL</transport-guarantee>
+    </user-data-constraint>
+  </security-constraint>
+</web-app>

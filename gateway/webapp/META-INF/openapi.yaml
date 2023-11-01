@@ -1,0 +1,117 @@
+openapi: 3.0.0
+info:
+  title: Piggy Metrics Gateway APIs
+  version: 1.0.0
+paths:
+  /api/accounts:
+    post:
+      operationId: add
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        default:
+          description: default response
+  /api/accounts/current:
+    get:
+      operationId: getCurrent
+      responses:
+        default:
+          description: default response
+    put:
+      operationId: updateCurrent
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Account'
+      responses:
+        default:
+          description: default response
+  /api/auth/login:
+    post:
+      operationId: loginUser
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        default:
+          description: default response
+components:
+  schemas:
+    Account:
+      type: object
+      properties:
+        name:
+          type: string
+        lastSeen:
+          type: string
+        incomes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Item'
+        expenses:
+          type: array
+          items:
+            $ref: '#/components/schemas/Item'
+        saving:
+          $ref: '#/components/schemas/Saving'
+        note:
+          type: string
+    Item:
+      type: object
+      properties:
+        title:
+          type: string
+        amount:
+          type: number
+        currency:
+          type: string
+          enum:
+          - USD
+          - EUR
+          - RUB
+        period:
+          type: string
+          enum:
+          - YEAR
+          - QUARTER
+          - MONTH
+          - DAY
+          - HOUR
+        icon:
+          type: string
+    User:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+    Saving:
+      type: object
+      properties:
+        amount:
+          type: number
+        currency:
+          type: string
+          enum:
+          - USD
+          - EUR
+          - RUB
+        interest:
+          type: number
+        deposit:
+          type: boolean
+        capitalization:
+          type: boolean
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+security:
+- BearerAuth: []

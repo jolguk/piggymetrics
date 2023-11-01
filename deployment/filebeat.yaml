@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: filebeat-config
+  labels:
+    app: filebeat
+data:
+  filebeat-ol.yml: |-
+    filebeat.inputs:
+    - type: log
+      paths:
+        - /logs/messages*.log
+      json.message_key: message
+      json.keys_under_root: true
+      json.add_error_key: true
+
+    output.elasticsearch:
+      hosts: ['${ELASTICSEARCH_HOST}:${ELASTICSEARCH_PORT}']
+      username: ${ELASTICSEARCH_USERNAME}
+      password: ${ELASTICSEARCH_PASSWORD}
+      protocol: https
+      ssl.verification_mode: none
+  filebeat-nginx.yml: |-
+    filebeat.inputs:
+    - type: log
+      enabled: true 
+      paths:
+        - /logs/access.log*
+      json.keys_under_root: true
+      json.overwrite_keys: true
+    - type: log
+      enabled: true 
+      paths:
+        - /logs/error.log*
+      json.keys_under_root: true
+      json.overwrite_keys: true
+    
+    output.elasticsearch:
+      hosts: ['${ELASTICSEARCH_HOST}:${ELASTICSEARCH_PORT}']
+      username: ${ELASTICSEARCH_USERNAME}
+      password: ${ELASTICSEARCH_PASSWORD}
+      protocol: https
+      ssl.verification_mode: none

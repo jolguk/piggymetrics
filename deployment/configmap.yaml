@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pg-configmap
+data: 
+  ELASTICSEARCH_HOST: ${ELASTICSEARCH_HOST}
+  ELASTICSEARCH_PORT: "${ELASTICSEARCH_PORT}"

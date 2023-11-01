@@ -1,0 +1,94 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: prometheus
+  labels:
+    app: prometheus
+spec:
+  selector:
+    app: prometheus
+  ports:
+  - port: 9090
+    name: http
+  type: ClusterIP
+---
+
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: prometheus
+  labels:
+    app: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+        version: v1
+    spec:
+      serviceAccountName: prometheus
+      containers:
+      - name: prometheus
+        image: prom/prometheus:latest
+        ports:
+        - containerPort: 9090
+        volumeMounts:
+        - name: prometheus-config-volume
+          mountPath: /etc/prometheus/prometheus.yml
+          subPath: prometheus.yml
+      volumes:
+      - name: prometheus-config-volume
+        configMap:
+          name: prometheus-config
+      restartPolicy: Always
+---
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: prometheus-config
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+
+      external_labels:
+        monitor: 'piggymetrics-monitor'
+
+    scrape_configs:
+    - job_name: 'gateway-metric'
+      scrape_interval: 5s
+
+      static_configs:
+      - targets: ['nginx-prometheus-exporter:9113']
+    - job_name: 'auth-metric'
+      scrape_interval: 5s
+
+      metrics_path: /metrics/
+      static_configs:
+      - targets: ['auth-service:9543']
+      scheme: https
+      tls_config:
+        insecure_skip_verify: true        
+    - job_name: 'account-metric'
+      scrape_interval: 5s
+
+      metrics_path: /metrics/
+      static_configs:
+      - targets: ['account-service:9643']
+      scheme: https
+      tls_config:
+        insecure_skip_verify: true 
+    - job_name: 'statistics-metric'
+      scrape_interval: 5s
+
+      metrics_path: /metrics/
+      static_configs:
+      - targets: ['statistics-service:9743']
+      scheme: https
+      tls_config:
+        insecure_skip_verify: true 
+---
