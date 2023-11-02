@@ -1,16 +1,18 @@
 # Piggy Metrics on Open Liberty
 
+NOTE: For original PiggyMetrics please see the branch [Azure](https://github.com/Azure-Samples/piggymetrics/tree/Azure).
+
 ## Description
 
 It's a demo application for Open Liberty MicroProfile, which references the following major open-source projects and guides:
 
 - [Open Liberty guides](https://openliberty.io/guides/): The quickest way to learn all things Open Liberty, and beyond!
-- [`piggymetrics`](https://github.com/sqshq/piggymetrics): front-end, REST APIs definition and business logics 
+- [`piggymetrics`](https://github.com/Azure-Samples/piggymetrics): front-end, REST APIs definition and business logics 
 - [`sample-acmegifts`](https://github.com/OpenLiberty/sample-acmegifts): architecture and OpenLiberty ways to implement microservices
 - [`liberty-mongodb`](https://github.com/JNOSQL/demos-ee/tree/main/liberty-mongodb): MicroProfile Open Liberty with MongoDB sample
 - [`openliberty-config-example`](https://github.com/sdaschner/openliberty-config-example/tree/prometheus-k8s): use Prometheus to collect metrics data of microservices and get them visualized/monitored in Grafana dashboard
 
-Note: The notification service from the original [`piggymetrics`](https://github.com/sqshq/piggymetrics) project is not ported yet, due to the time limitation. This will be implemented when time permits in the future.
+Note: The notification service from the original [`piggymetrics`](https://github.com/Azure-Samples/piggymetrics) project is not ported yet, due to the time limitation. This will be implemented when time permits in the future.
 
 ## Technologies used
 
