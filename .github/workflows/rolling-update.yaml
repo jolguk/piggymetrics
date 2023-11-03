@@ -1,0 +1,82 @@
+name: Rolling update
+on:
+  push:
+    branches:
+      - "main"
+      - "openliberty"
+    paths-ignore:
+      - '.gitignore'
+      - 'LICENSE'
+      - '*.md'
+      - '*.sh'
+      - 'media/**'
+      - 'docker/**'
+      - 'deployment/**'
+      - '.github/**'
+  workflow_dispatch:
+env:
+  azureCredentials: ${{ secrets.AZURE_CREDENTIALS }}
+  keystorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+  resourceGroupName: ${{ vars.RESOURCE_GROUP_NAME }}
+  aksClusterName: ${{ vars.AKS_CLUSTER_NAME }}
+  acrName: ${{ vars.ACR_NAME }}
+  namespaceName: ${{ vars.NAMESPACE_NAME }}
+  imageTag: ${{ github.run_id }}${{ github.run_number }}
+  nginxVersion: ${{ vars.NGINX_VERSION }}
+  otelModuleVersion: ${{ vars.OTEL_MODULE_VERSION }}
+jobs:
+  preflight:
+    outputs:
+      app-deployed: ${{ steps.verify-app-availability.outputs.app-deployed }}
+    runs-on: ubuntu-latest
+    permissions: 
+      packages: write
+    steps:
+      - uses: actions/checkout@v3
+      - name: Check if application is deployed
+        id: verify-app-availability
+        uses: ./.github/actions/verify-app-availability
+        with:
+          azure-credentials: ${{ env.azureCredentials }}
+          resource-group-name: ${{ env.resourceGroupName }}
+          aks-cluster-name: ${{ env.aksClusterName }}
+          namespace-name: ${{ env.namespaceName }}
+  rolling-update:
+    needs: preflight
+    if: ${{ needs.preflight.outputs.app-deployed == 'true' }}
+    runs-on: ubuntu-latest
+    permissions: 
+      packages: write
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build image for NGINX with OpenTelemetry module
+        uses: ./.github/actions/build-image-nginx-otel
+        with:
+          ghcr-username: ${{ github.actor }}
+          ghcr-password: ${{ secrets.GITHUB_TOKEN }}
+          nginx-version: ${{ env.nginxVersion }}
+          otel-module-version: ${{ env.otelModuleVersion }}
+      - name: Rolling update the application
+        uses: ./.github/actions/rolling-update
+        with:
+          azure-credentials: ${{ env.azureCredentials }}
+          resource-group-name: ${{ env.resourceGroupName }}
+          aks-cluster-name: ${{ env.aksClusterName }}
+          acr-name: ${{ env.acrName }}
+          image-tag: ${{ env.imageTag }}
+          keystore-password: ${{ env.keystorePassword }}
+          namespace-name: ${{ env.namespaceName }}
+          nginx-version: ${{ env.nginxVersion }}
+          otel-module-version: ${{ env.otelModuleVersion }}
+      - name: Output application access endpoints
+        id: output-app-endpoints
+        uses: ./.github/actions/output-app-endpoints
+        with:
+          resource-group-name: ${{ env.resourceGroupName }}
+          aks-cluster-name: ${{ env.aksClusterName }}
+          namespace-name: ${{ env.namespaceName }}
+      - name: Upload output file
+        uses: actions/upload-artifact@v3
+        with:
+          name: output-file
+          path: ${{ steps.output-app-endpoints.outputs.output-file-name }}

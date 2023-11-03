@@ -1,0 +1,28 @@
+name: 'Build image nginx-otel'
+description: 'Build image for NGINX with OpenTelemetry module and push to GitHub Container Registry'
+inputs:
+  ghcr-username:
+    description: 'GitHub Container Registry username'
+    required: true
+  ghcr-password:
+    description: 'GitHub Container Registry password'
+    required: true
+  nginx-version:
+    description: 'Nginx version'
+    required: true
+  otel-module-version:
+    description: 'OpenTelemetry module version'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ inputs.ghcr-username }}
+        password: ${{ inputs.ghcr-password }}
+    - run: |
+        # Build NGINX image with OpenTelemetry module
+        ${{ github.action_path }}/../../../build-nginx-otel.sh ${{ github.repository_owner }} ${{ inputs.nginx-version }} ${{ inputs.otel-module-version }}
+      shell: bash

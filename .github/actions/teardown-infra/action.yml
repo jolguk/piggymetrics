@@ -1,0 +1,20 @@
+name: 'Tear down the infrastructure'
+description: 'Tear down the infrastructure where the application was deployed and running'
+inputs:
+  azure-credentials:
+    description: 'Azure credentials to sign in'
+    required: true
+  resource-group-name:
+    description: 'Resource group where the infrastructure is deployed'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - uses: azure/login@v1
+      id: azure-login
+      with:
+        creds: ${{ inputs.azure-credentials }}
+    - run: |
+        # Delete resource group if it exists
+        az group show -n ${{ inputs.resource-group-name }} && az group delete -n ${{ inputs.resource-group-name }} --yes --no-wait || echo "Resource group ${{ inputs.resource-group-name }} doesn't exist!"
+      shell: bash

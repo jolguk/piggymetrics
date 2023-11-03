@@ -1,0 +1,38 @@
+name: 'Verify app availability'
+description: 'Verify if application is deployed and running on AKS cluster'
+inputs:
+  azure-credentials:
+    description: 'Azure credentials to sign in'
+    required: true
+  resource-group-name:
+    description: 'Resource group where the infrastructure is deployed'
+    required: true
+  aks-cluster-name:
+    description: 'AKS cluster name'
+    required: true
+  namespace-name:
+    description: 'Namespace name'
+    required: true
+outputs:
+  app-deployed:
+    description: "App deployed or not"
+    value: ${{ steps.verify-app-availability.outputs.deployed }}
+runs:
+  using: "composite"
+  steps:
+    - uses: azure/login@v1
+      id: azure-login
+      with:
+        creds: ${{ inputs.azure-credentials }}
+    - id: verify-app-availability
+      run: |
+        az aks get-credentials -g ${{ inputs.resource-group-name }} -n ${{ inputs.aks-cluster-name }} --overwrite-existing && 
+        kubectl get deployment auth -n ${{ inputs.namespace-name }} &&
+        kubectl get deployment statistics -n ${{ inputs.namespace-name }} &&
+        kubectl get deployment account -n ${{ inputs.namespace-name }} &&
+        kubectl get deployment gateway -n ${{ inputs.namespace-name }} &&
+        deployed=true ||
+        deployed=false
+
+        echo "deployed=${deployed}" >> $GITHUB_OUTPUT
+      shell: bash

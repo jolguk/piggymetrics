@@ -1,0 +1,30 @@
+name: 'Set up the infrastructure'
+description: 'Set up infrastructure for deploying and running the application'
+inputs:
+  azure-credentials:
+    description: 'Azure credentials to sign in'
+    required: true
+  resource-group-name:
+    description: 'Resource group where the infrastructure is deployed'
+    required: true
+  aks-cluster-name:
+    description: 'AKS cluster name'
+    required: true
+  acr-name:
+    description: 'ACR name'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - uses: azure/login@v1
+      id: azure-login
+      with:
+        creds: ${{ inputs.azure-credentials }}
+    - run: |
+        # Create resource group if it doesn't exist
+        az group show -n ${{ inputs.resource-group-name }} || az group create -l eastus -n ${{ inputs.resource-group-name }}
+        # Create acr if it doesn't exist
+        az acr show -g ${{ inputs.resource-group-name }} -n ${{ inputs.acr-name }} || az acr create -g ${{ inputs.resource-group-name }} -n ${{ inputs.acr-name }} --sku Basic --admin-enabled
+        # Create aks cluster if it doesn't exist
+        az aks show -g ${{ inputs.resource-group-name }} -n ${{ inputs.aks-cluster-name }} || az aks create -g ${{ inputs.resource-group-name }} -n ${{ inputs.aks-cluster-name }} --node-count 6 --enable-managed-identity --generate-ssh-keys --attach-acr ${{ inputs.acr-name }}
+      shell: bash

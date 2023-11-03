@@ -1,0 +1,42 @@
+name: 'Deploy application'
+description: 'Deploy application to AKS cluster'
+inputs:
+  azure-credentials:
+    description: 'Azure credentials to sign in'
+    required: true
+  resource-group-name:
+    description: 'Resource group where the infrastructure is deployed'
+    required: true
+  aks-cluster-name:
+    description: 'AKS cluster name'
+    required: true
+  acr-name:
+    description: 'ACR name'
+    required: true
+  image-tag:
+    description: 'Image tag'
+    required: true
+  keystore-password:
+    description: 'Key store password'
+    required: true
+  mongodb-user:
+    description: 'Mongo DB user'
+    required: true
+  mongodb-password:
+    description: 'Mongo DB password'
+    required: true
+  namespace-name:
+    description: 'Namespace name'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - uses: azure/login@v1
+      id: azure-login
+      with:
+        creds: ${{ inputs.azure-credentials }}
+    - run: |
+        # Deploy the application to AKS cluster
+        ${{ github.action_path }}/../../../deploy.sh ${{ inputs.resource-group-name }} ${{ inputs.aks-cluster-name }} ${{ inputs.acr-name }} \
+          ${{ inputs.image-tag }} ${{ inputs.mongodb-user }} ${{ inputs.mongodb-password }} ${{ inputs.keystore-password }} ${{ inputs.namespace-name }}
+      shell: bash

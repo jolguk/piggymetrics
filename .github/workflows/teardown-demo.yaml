@@ -1,0 +1,16 @@
+name: Tear down demo
+on:
+  workflow_dispatch:
+env:
+  azureCredentials: ${{ secrets.AZURE_CREDENTIALS }}
+  resourceGroupName: ${{ vars.RESOURCE_GROUP_NAME }}
+jobs:
+  teardown:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Tear down the infrastructure
+        uses: ./.github/actions/teardown-infra
+        with:
+          azure-credentials: ${{ env.azureCredentials }}
+          resource-group-name: ${{ env.resourceGroupName }}

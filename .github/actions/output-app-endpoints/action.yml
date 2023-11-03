@@ -1,0 +1,38 @@
+name: 'Output application access endpoints'
+description: 'Output access endpoints of application running on AKS cluster'
+inputs:
+  resource-group-name:
+    description: 'Resource group where the infrastructure is deployed'
+    required: true
+  aks-cluster-name:
+    description: 'AKS cluster name'
+    required: true
+  namespace-name:
+    description: 'Namespace name'
+    required: true
+outputs:
+  output-file-name:
+    description: "Output file"
+    value: ${{ steps.output-file.outputs.name }}
+runs:
+  using: "composite"
+  steps:
+    - id: output-file
+      run: |
+        # Save commands which connect to the aks cluster and get endpoints with access credentials to output.sh
+        export RESOURCE_GROUP_NAME=${{ inputs.resource-group-name }}
+        export CLUSTER_NAME=${{ inputs.aks-cluster-name }}
+        export NAMESPACE=${{ inputs.namespace-name }}
+
+        echo '
+        #!/bin/bash
+        az aks get-credentials -g ${RESOURCE_GROUP_NAME} -n ${CLUSTER_NAME} --overwrite-existing
+        echo "gatewayEndpoint: https://$(kubectl get svc gateway -n ${NAMESPACE} -o=jsonpath='"'"'{.status.loadBalancer.ingress[0].ip}:{.spec.ports[1].port}'"'"')"
+        echo "jaegerEndpoint: http://$(kubectl get ingress jaeger-query -n ${NAMESPACE} -o=jsonpath='"'"'{.status.loadBalancer.ingress[0].ip}'"'"')"
+        echo "grafanaEndpoint: http://$(kubectl get svc grafana -n ${NAMESPACE} -o=jsonpath='"'"'{.status.loadBalancer.ingress[0].ip}:{.spec.ports[0].port}'"'"'), initial username: admin, initial password: admin"
+        echo "kibanaEndpoint: https://$(kubectl get svc quickstart-kb-http -n ${NAMESPACE} -o=jsonpath='"'"'{.status.loadBalancer.ingress[0].ip}:{.spec.ports[0].port}'"'"'), username: elastic, password: $(kubectl get secret --namespace=${NAMESPACE} quickstart-es-elastic-user -o=jsonpath='"'"'{.data.elastic}'"'"' | base64 --decode)"
+        ' | envsubst > output.sh
+        chmod +x output.sh
+
+        echo "name=output.sh" >> $GITHUB_OUTPUT
+      shell: bash

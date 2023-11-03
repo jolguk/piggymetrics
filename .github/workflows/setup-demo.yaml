@@ -1,0 +1,69 @@
+name: Setup demo
+on:
+  workflow_dispatch:
+env:
+  azureCredentials: ${{ secrets.AZURE_CREDENTIALS }}
+  resourceGroupName: ${{ vars.RESOURCE_GROUP_NAME }}
+  aksClusterName: ${{ vars.AKS_CLUSTER_NAME }}
+  acrName: ${{ vars.ACR_NAME }}
+  imageTag: ${{ github.run_id }}${{ github.run_number }}
+  mongodbUser: ${{ secrets.MONGODB_USER }}
+  mongodbPassword: ${{ secrets.MONGODB_PASSWORD }}
+  keystorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+  namespaceName: ${{ vars.NAMESPACE_NAME }}
+  nginxVersion: ${{ vars.NGINX_VERSION }}
+  otelModuleVersion: ${{ vars.OTEL_MODULE_VERSION }}
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    permissions: 
+      packages: write
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up the infrastructure
+        uses: ./.github/actions/setup-infra
+        with:
+          azure-credentials: ${{ env.azureCredentials }}
+          resource-group-name: ${{ env.resourceGroupName }}
+          aks-cluster-name: ${{ env.aksClusterName }}
+          acr-name: ${{ env.acrName }}
+      - name: Build image for NGINX with OpenTelemetry module
+        uses: ./.github/actions/build-image-nginx-otel
+        with:
+          ghcr-username: ${{ github.actor }}
+          ghcr-password: ${{ secrets.GITHUB_TOKEN }}
+          nginx-version: ${{ env.nginxVersion }}
+          otel-module-version: ${{ env.otelModuleVersion }}
+      - name: Build images for PiggyMetrics and push to ACR
+        uses: ./.github/actions/build-image-piggymetrics
+        with:
+          azure-credentials: ${{ env.azureCredentials }}
+          keystore-password: ${{ env.keystorePassword }}
+          acr-name: ${{ env.acrName }}
+          image-tag: ${{ env.imageTag }}
+          nginx-version: ${{ env.nginxVersion }}
+          otel-module-version: ${{ env.otelModuleVersion }}
+      - name: Deploy the application to AKS
+        uses: ./.github/actions/deploy-app
+        with:
+          azure-credentials: ${{ env.azureCredentials }}
+          resource-group-name: ${{ env.resourceGroupName }}
+          aks-cluster-name: ${{ env.aksClusterName }}
+          acr-name: ${{ env.acrName }}
+          image-tag: ${{ env.imageTag }}
+          mongodb-user: ${{ env.mongodbUser }}
+          mongodb-password: ${{ env.mongodbPassword }}
+          keystore-password: ${{ env.keystorePassword }}
+          namespace-name: ${{ env.namespaceName }}
+      - name: Output application access endpoints
+        id: output-app-endpoints
+        uses: ./.github/actions/output-app-endpoints
+        with:
+          resource-group-name: ${{ env.resourceGroupName }}
+          aks-cluster-name: ${{ env.aksClusterName }}
+          namespace-name: ${{ env.namespaceName }}
+      - name: Upload output file
+        uses: actions/upload-artifact@v3
+        with:
+          name: output-file
+          path: ${{ steps.output-app-endpoints.outputs.output-file-name }}
