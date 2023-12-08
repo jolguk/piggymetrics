@@ -8,6 +8,8 @@ services:
     environment:
       - MONGO_INITDB_ROOT_USERNAME=$MONGODB_USER
       - MONGO_INITDB_ROOT_PASSWORD=$MONGODB_PASSWORD
+    volumes:
+      - mongodb:/data/db
     networks:
       - piggymetrics
   jaeger:
@@ -29,6 +31,8 @@ services:
       - JNOSQL_MONGODB_PASSWORD=$MONGODB_PASSWORD
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
       - KEYSTORE_PASS=$KEYSTORE_PASSWORD
+    volumes:
+      - logs-auth:/logs
     networks:
       - piggymetrics
     depends_on:
@@ -45,6 +49,8 @@ services:
       - JNOSQL_MONGODB_PASSWORD=$MONGODB_PASSWORD
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
       - KEYSTORE_PASS=$KEYSTORE_PASSWORD
+    volumes:
+      - logs-statistics:/logs
     networks:
       - piggymetrics
     depends_on:
@@ -63,6 +69,8 @@ services:
       - AUTHSERVICECLIENT_MP_REST_URI=http://auth-service:9180
       - STATISTICSSERVICECLIENT_MP_REST_URI=http://statistics-service:9380
       - KEYSTORE_PASS=$KEYSTORE_PASSWORD
+    volumes:
+      - logs-account:/logs
     networks:
       - piggymetrics
     depends_on:
@@ -74,10 +82,13 @@ services:
       - "9080:9080"
       - "9443:9443"
     environment:
+      - LOG_DIRECTORY=/logs/nginx
       - JAEGER_URL=jaeger:4317
       - AUTH_SERVICE_URL=http://auth-service:9180
       - ACCOUNT_SERVICE_URL=http://account-service:9280
       - STATISTICS_SERVICE_URL=http://statistics-service:9380
+    volumes:
+      - logs-nginx:/logs/nginx
     networks:
       - piggymetrics
     depends_on:
@@ -113,12 +124,61 @@ services:
     restart: unless-stopped
     volumes:
       - ./datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml
-      - grafana-data:/var/lib/grafana
+      - grafanadata:/var/lib/grafana
     networks:
       - piggymetrics
     depends_on:
       - prometheus
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.15.1
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - ELASTIC_USERNAME=elastic
+      - ELASTIC_PASSWORD=$ELASTIC_PASSWORD
+    ports:
+      - 9200:9200
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    networks:
+      - piggymetrics
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.15.1
+    ports:
+      - 5601:5601
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTICSEARCH_PASSWORD=$ELASTIC_PASSWORD
+    networks:
+      - piggymetrics
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.15.1
+    environment:
+      - ELASTICSEARCH_HOSTS=elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTICSEARCH_PASSWORD=$ELASTIC_PASSWORD
+    user: root
+    command: ["--strict.perms=false"]
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml
+      - logs-auth:/logs/auth
+      - logs-statistics:/logs/statistics
+      - logs-account:/logs/account
+      - logs-nginx:/logs/nginx
+    networks:
+      - piggymetrics
+    depends_on:
+      - gateway
+      - elasticsearch
+      - kibana
 networks:
   piggymetrics:
 volumes:
-  grafana-data:
+  mongodb:
+  grafanadata:
+  esdata:
+  logs-auth:
+  logs-statistics:
+  logs-account:
+  logs-nginx:

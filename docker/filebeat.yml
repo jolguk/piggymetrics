@@ -1,0 +1,20 @@
+filebeat.inputs:
+- type: log
+  paths:
+    - /logs/auth/messages*.log
+    - /logs/statistics/messages*.log
+    - /logs/account/messages*.log
+  json.message_key: message
+  json.keys_under_root: true
+  json.add_error_key: true
+- type: log
+  enabled: true 
+  paths:
+    - /logs/nginx/access.log*
+    - /logs/nginx/error.log*
+  json.keys_under_root: true
+  json.overwrite_keys: true
+output.elasticsearch:
+  hosts: ['${ELASTICSEARCH_HOSTS}']
+  username: ${ELASTICSEARCH_USERNAME}
+  password: ${ELASTICSEARCH_PASSWORD}

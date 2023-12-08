@@ -1,15 +1,15 @@
 name: 'Build images'
-description: 'Build images and push to ACR'
+description: 'Build images and push to ACR if provided'
 inputs:
   azure-credentials:
     description: 'Azure credentials to sign in'
-    required: true
+    required: false
   keystore-password:
     description: 'Key store password'
     required: true
   acr-name:
     description: 'ACR name'
-    required: true
+    required: false
   image-tag:
     description: 'Image tag'
     required: true
@@ -26,6 +26,7 @@ runs:
       id: azure-login
       with:
         creds: ${{ inputs.azure-credentials }}
+      if: ${{ inputs.azure-credentials }}
     - name: Set up JDK 17
       uses: actions/setup-java@v3
       with:
@@ -34,5 +35,5 @@ runs:
         cache: 'maven'
     - run: |
         # Build projects, containerize applications and push images to acr
-        ${{ github.action_path }}/../../../build.sh ${{ inputs.keystore-password }} ${{ inputs.acr-name }} ${{ inputs.image-tag }} ${{ inputs.nginx-version }} ${{ inputs.otel-module-version }}
+        ${{ github.action_path }}/../../../build-piggymetrics.sh ${{ inputs.keystore-password }} ${{ inputs.image-tag }} ${{ inputs.nginx-version }} ${{ inputs.otel-module-version }} ${{ inputs.acr-name }}
       shell: bash

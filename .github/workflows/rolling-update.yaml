@@ -75,8 +75,13 @@ jobs:
           resource-group-name: ${{ env.resourceGroupName }}
           aks-cluster-name: ${{ env.aksClusterName }}
           namespace-name: ${{ env.namespaceName }}
-      - name: Upload output file
+      - name: Run integration test against the gateway endpoint
+        uses: ./.github/actions/integ-test
+        if: ${{ steps.output-app-endpoints.outputs.gateway-available == 'true' }}
+        with:
+          gateway-endpoint: ${{ steps.output-app-endpoints.outputs.gateway-endpoint }}
+      - name: Upload app endpoints file
         uses: actions/upload-artifact@v3
         with:
-          name: output-file
-          path: ${{ steps.output-app-endpoints.outputs.output-file-name }}
+          name: app-endpoints-file
+          path: ${{ steps.output-app-endpoints.outputs.app-endpoints-file }}

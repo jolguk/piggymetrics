@@ -8,6 +8,7 @@ COPY nginx/keyfile.key /etc/ssl/keyfile.key
 COPY nginx/nginx.conf.template /etc/nginx/nginx.conf.template
 COPY nginx/entrypoint.sh /
 
+ENV LOG_DIRECTORY=/var/log/nginx
 ENV JAEGER_URL=localhost:4317
 ENV AUTH_SERVICE_URL=http://localhost:9180
 ENV ACCOUNT_SERVICE_URL=http://localhost:9280

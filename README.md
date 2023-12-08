@@ -166,10 +166,11 @@ docker build \
   -t nginx-otel:${NGINX_VERSION}-${OTEL_MODULE_VERSION} --file gateway/Dockerfile-nginx-otel gateway/
 ```
 
-Then open a new terminal to build the services into Docker images.
+Then open a new terminal to build the services into Docker images. Be sure to replace the placeholder `<your-keystore-password>` with your keystore password.
 
 ```bash
 cd piggymetrics
+mvn clean install -Dliberty.var.keystore.pass=<your-keystore-password>
 
 docker build -t auth-service:1.0 auth-service/
 docker build -t statistics-service:1.0 statistics-service/
@@ -177,12 +178,13 @@ docker build -t account-service:1.0 account-service/
 docker build --build-arg NGINX_VERSION=${NGINX_VERSION} --build-arg OTEL_MODULE_VERSION=${OTEL_MODULE_VERSION} -t gateway:1.0 gateway/
 ```
 
-Run these application images and dependent middleware services as Docker containers via `docker-compose`. Be sure to replace the placeholder `<your-keystore-password>`, `<your-db-username>` and `<your-db-password>` with your keystore password, your database username and password.
+Run these application images and dependent middleware services as Docker containers via `docker-compose`. Be sure to replace the placeholder `<your-keystore-password>`, `<your-elasticsearch-password>`, `<your-db-username>` and `<your-db-password>` with your keystore password, your elasticsearch password, your database username and password.
 
 ```bash
 export MONGODB_USER=<your-db-username>
 export MONGODB_PASSWORD=<your-db-password>
 export KEYSTORE_PASSWORD=<your-keystore-password>
+export ELASTIC_PASSWORD=<your-elasticsearch-password>
 export IMAGE_TAG=1.0
 docker-compose -f docker/docker-compose.yml up
 ```
@@ -192,6 +194,7 @@ After all containers are up and running, open the following URLs in your browser
 * https://localhost:9443: PiggyMetrics web console
 * http://localhost:16686: Jaeger web console
 * http://localhost:3000: Grafana web console
+* http://localhost:5601: Kibana web console (elastic / `<your-elasticsearch-password>`)
 
 Once you complete the try, press `Ctrl+C` to stop all containers and run the following commands to remove all container.
 
@@ -264,7 +267,7 @@ docker login ghcr.io -u <your-github-username> -p <your-github-personal-access-t
 
 export KEYSTORE_PASSWORD=<your-keystore-password>
 export IMAGE_TAG=1.0
-./build.sh $KEYSTORE_PASSWORD $REGISTRY_NAME $IMAGE_TAG ${NGINX_VERSION} ${OTEL_MODULE_VERSION}
+./build-piggymetrics.sh $KEYSTORE_PASSWORD $IMAGE_TAG ${NGINX_VERSION} ${OTEL_MODULE_VERSION} $REGISTRY_NAME
 ```
 
 It's recommened that:

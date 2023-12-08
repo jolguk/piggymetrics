@@ -26,5 +26,6 @@ runs:
         # Create acr if it doesn't exist
         az acr show -g ${{ inputs.resource-group-name }} -n ${{ inputs.acr-name }} || az acr create -g ${{ inputs.resource-group-name }} -n ${{ inputs.acr-name }} --sku Basic --admin-enabled
         # Create aks cluster if it doesn't exist
-        az aks show -g ${{ inputs.resource-group-name }} -n ${{ inputs.aks-cluster-name }} || az aks create -g ${{ inputs.resource-group-name }} -n ${{ inputs.aks-cluster-name }} --node-count 6 --enable-managed-identity --generate-ssh-keys --attach-acr ${{ inputs.acr-name }}
+        acrResourceId=$(az acr show -g ${{ inputs.resource-group-name }} -n ${{ inputs.acr-name }} --query id -o tsv)
+        az aks show -g ${{ inputs.resource-group-name }} -n ${{ inputs.aks-cluster-name }} || az aks create -g ${{ inputs.resource-group-name }} -n ${{ inputs.aks-cluster-name }} --node-count 6 --enable-managed-identity --generate-ssh-keys --attach-acr ${acrResourceId}
       shell: bash

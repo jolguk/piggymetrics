@@ -1,0 +1,63 @@
+name: Integration test
+on:
+  push:
+    branches:
+      - "main"
+      - "openliberty"
+    paths-ignore:
+      - '.gitignore'
+      - 'LICENSE'
+      - '*.md'
+      - 'media/**'
+      - 'deployment/**'
+  workflow_dispatch:
+  schedule:
+    # Runs every Monday at 1:00 PM (GMT +08:00)
+    - cron: '0 5 * * 1'
+
+env:
+  imageTag: ${{ github.run_id }}${{ github.run_number }}
+  mongodbUser: ${{ secrets.MONGODB_USER }}
+  mongodbPassword: ${{ secrets.MONGODB_PASSWORD }}
+  keystorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+  nginxVersion: ${{ vars.NGINX_VERSION }}
+  otelModuleVersion: ${{ vars.OTEL_MODULE_VERSION }}
+jobs:
+  integ-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build image for NGINX with OpenTelemetry module
+        uses: ./.github/actions/build-image-nginx-otel
+        with:
+          ghcr-username: ${{ github.actor }}
+          ghcr-password: ${{ secrets.GITHUB_TOKEN }}
+          nginx-version: ${{ env.nginxVersion }}
+          otel-module-version: ${{ env.otelModuleVersion }}
+      - name: Build images for PiggyMetrics
+        uses: ./.github/actions/build-image-piggymetrics
+        with:
+          keystore-password: ${{ env.keystorePassword }}
+          image-tag: ${{ env.imageTag }}
+          nginx-version: ${{ env.nginxVersion }}
+          otel-module-version: ${{ env.otelModuleVersion }}
+      - name: Start application with docker-compose
+        run: |
+          export MONGODB_USER=${{ env.mongodbUser }}
+          export MONGODB_PASSWORD=${{ env.mongodbPassword }}
+          export KEYSTORE_PASSWORD=${{ env.keystorePassword }}
+          export ELASTIC_PASSWORD=${{ env.mongodbPassword }}
+          export IMAGE_TAG=${{ env.imageTag }}
+          docker-compose -f docker/docker-compose.yml up -d
+      - name: Run integration test against the gateway endpoint
+        uses: ./.github/actions/integ-test
+      - name: Stop application with docker-compose
+        if: always()
+        run: |
+          export MONGODB_USER=${{ env.mongodbUser }}
+          export MONGODB_PASSWORD=${{ env.mongodbPassword }}
+          export KEYSTORE_PASSWORD=${{ env.keystorePassword }}
+          export ELASTIC_PASSWORD=${{ env.mongodbPassword }}
+          export IMAGE_TAG=${{ env.imageTag }}
+          docker-compose -f docker/docker-compose.yml down
+          docker volume prune --all -f

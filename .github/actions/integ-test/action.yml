@@ -1,0 +1,13 @@
+name: 'Integration test'
+description: 'Run integration test against the gateway endpoint'
+inputs:
+  gateway-endpoint:
+    description: 'Gateway endpoint, default to https://localhost:9443 if not provided'
+    required: false
+runs:
+  using: "composite"
+  steps:
+    - run: |
+        # Run integration test against the gateway endpoint
+        ${{ github.action_path }}/../../../integ-test.sh ${{ inputs.gateway-endpoint }}
+      shell: bash

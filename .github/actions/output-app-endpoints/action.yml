@@ -11,13 +11,19 @@ inputs:
     description: 'Namespace name'
     required: true
 outputs:
-  output-file-name:
-    description: "Output file"
-    value: ${{ steps.output-file.outputs.name }}
+  app-endpoints-file:
+    description: "App endpoints file"
+    value: ${{ steps.app-endpoints.outputs.appEndpointsFile }}
+  gateway-endpoint:
+    description: "Gateway endpoint"
+    value: ${{ steps.app-endpoints.outputs.gatewayEndpoint }}
+  gateway-available:
+    description: "Gateway available or not"
+    value: ${{ steps.app-endpoints.outputs.gatewayAvailable }}
 runs:
   using: "composite"
   steps:
-    - id: output-file
+    - id: app-endpoints
       run: |
         # Save commands which connect to the aks cluster and get endpoints with access credentials to output.sh
         export RESOURCE_GROUP_NAME=${{ inputs.resource-group-name }}
@@ -25,14 +31,25 @@ runs:
         export NAMESPACE=${{ inputs.namespace-name }}
 
         echo '
-        #!/bin/bash
+        # Copy and paste these commands to your terminal, then run them to get the application endpoints with access credentials
         az aks get-credentials -g ${RESOURCE_GROUP_NAME} -n ${CLUSTER_NAME} --overwrite-existing
         echo "gatewayEndpoint: https://$(kubectl get svc gateway -n ${NAMESPACE} -o=jsonpath='"'"'{.status.loadBalancer.ingress[0].ip}:{.spec.ports[1].port}'"'"')"
         echo "jaegerEndpoint: http://$(kubectl get ingress jaeger-query -n ${NAMESPACE} -o=jsonpath='"'"'{.status.loadBalancer.ingress[0].ip}'"'"')"
         echo "grafanaEndpoint: http://$(kubectl get svc grafana -n ${NAMESPACE} -o=jsonpath='"'"'{.status.loadBalancer.ingress[0].ip}:{.spec.ports[0].port}'"'"'), initial username: admin, initial password: admin"
         echo "kibanaEndpoint: https://$(kubectl get svc quickstart-kb-http -n ${NAMESPACE} -o=jsonpath='"'"'{.status.loadBalancer.ingress[0].ip}:{.spec.ports[0].port}'"'"'), username: elastic, password: $(kubectl get secret --namespace=${NAMESPACE} quickstart-es-elastic-user -o=jsonpath='"'"'{.data.elastic}'"'"' | base64 --decode)"
-        ' | envsubst > output.sh
-        chmod +x output.sh
+        ' | envsubst > appEndpoints.txt
+        echo "appEndpointsFile=appEndpoints.txt" >> $GITHUB_OUTPUT
+        
+        az aks get-credentials -g ${RESOURCE_GROUP_NAME} -n ${CLUSTER_NAME} --overwrite-existing
+        gatewayEndpoint=https://$(kubectl get svc gateway -n ${NAMESPACE} -o=jsonpath='{.status.loadBalancer.ingress[0].ip}:{.spec.ports[1].port}')
+        echo "gatewayEndpoint=${gatewayEndpoint}" >> $GITHUB_OUTPUT
 
-        echo "name=output.sh" >> $GITHUB_OUTPUT
+        # Check if the gateway is available
+        # The gateway is unavailable if the app is deployed using the internal subscription based on testing result
+        statusCode=$(curl --connect-timeout 10 --max-time 30 --retry 3 --retry-delay 5 --retry-max-time 30 --retry-connrefused \
+          --insecure --write-out '%{http_code}' --silent --output /dev/null ${gatewayEndpoint}) &&
+        [[ $statusCode -eq 200 ]] &&
+        gatewayAvailable=true ||
+        gatewayAvailable=false
+        echo "gatewayAvailable=${gatewayAvailable}" >> $GITHUB_OUTPUT
       shell: bash

@@ -121,3 +121,93 @@ wait_ingress_available() {
         echo "Ingress ${ingressName} ip is ${ip}"
     done
 }
+
+Green='\033[0;32m'
+Red='\033[0;31m'
+Color_Off='\033[0m'
+Check_Mark='\xE2\x9C\x94'
+
+assert_equals () {
+  if [ "$1" = "$2" ]; then
+    echo -e "$Green $Check_Mark Success $Color_Off"
+  else
+    echo -e "$Red Failed $Color_Off"
+    echo -e "$Red Expected $1 to equal $2 $Color_Off"
+    exit 1
+  fi
+}
+
+get_json_value () {
+  echo $1 | jq -r $2
+}
+
+wait_app_ready() {
+    readinessCheckEndpoint=$1
+    accountsEndpoint=$2
+    username=$3
+    password=$4
+
+    cnt=0
+    statusCode=$(curl $readinessCheckEndpoint --insecure --silent --output /dev/null --write-out '%{http_code}')
+    while [ $statusCode -ne 200 ]
+    do
+        if [ $cnt -eq $MAX_RETRIES ]; then
+            echo "Timeout and exit due to the maximum retries reached." 
+            exit 1
+        fi
+        cnt=$((cnt+1))
+
+        echo "Readiness check endpoint is not available, retry ${cnt} of ${MAX_RETRIES}..."
+        sleep 20
+        statusCode=$(curl $readinessCheckEndpoint --insecure --silent --output /dev/null --write-out '%{http_code}')
+    done
+
+    cnt=0
+    status=$(curl $readinessCheckEndpoint --insecure --silent | jq -r 'select(.status != null) | .status')
+    while [[ UP != $status ]]
+    do
+        if [ $cnt -eq $MAX_RETRIES ]; then
+            echo "Timeout and exit due to the maximum retries reached." 
+            exit 1
+        fi
+        cnt=$((cnt+1))
+
+        echo "Readiness status is ${status}, retry ${cnt} of ${MAX_RETRIES}..."
+        sleep 20
+        status=$(curl $readinessCheckEndpoint --insecure --silent | jq -r 'select(.status != null) | .status')
+    done
+    echo "Readiness status is ${status}, wait 60s before creating testing account..."
+    sleep 60
+
+    cnt=0
+    statusCode=$(curl -X 'POST' \
+        "$accountsEndpoint" \
+        -H 'Content-Type: application/json' \
+        -d '{
+            "username": "'$username'",
+            "password": "'$password'"
+        }' \
+        --insecure \
+        --write-out '%{http_code}' --silent --output /dev/null)
+    while [ $statusCode -ne 201 ]
+    do
+        if [ $cnt -eq $MAX_RETRIES ]; then
+            echo "Timeout and exit due to the maximum retries reached." 
+            exit 1
+        fi
+        cnt=$((cnt+1))
+
+        echo "Failed to create testing account ${username}, retry ${cnt} of ${MAX_RETRIES}..."
+        sleep 30
+        statusCode=$(curl -X 'POST' \
+            "$accountsEndpoint" \
+            -H 'Content-Type: application/json' \
+            -d '{
+                "username": "'$username'",
+                "password": "'$password'"
+            }' \
+            --insecure \
+            --write-out '%{http_code}' --silent --output /dev/null)
+    done
+    echo "Successfully created testing account ${username}."
+}
