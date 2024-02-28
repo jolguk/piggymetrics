@@ -23,6 +23,6 @@ jobs:
           azure-subscription: ${{ env.AZURE_SUBSCRIPTION }}
           action: deploy
           service-name: springgit
-          app-name: auth_service
+          app-name: monitoring
           use-staging-deployment: false
           package: ${{ env.ASC_PACKAGE_PATH }}
