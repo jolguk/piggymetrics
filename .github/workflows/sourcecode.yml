@@ -2,7 +2,7 @@ name: AzureSpringApps
 on: push
 env:
   ASC_PACKAGE_PATH: ${{ github.workspace }}
-  AZURE_SUBSCRIPTION: MCAPS-Hybrid-REQ-51216-2023-JoanneHealy
+  AZURE_SUBSCRIPTION: f7f7f0b4-1299-429b-8927-12f2c5881db2
 
 jobs:
   deploy_to_production:
